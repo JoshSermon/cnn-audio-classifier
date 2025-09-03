@@ -9,6 +9,11 @@ from torch.utils.data import Dataset, DataLoader
 import torchaudio
 import torch.nn as nn
 import torchaudio.transforms as T
+import torch.optim as optim
+from torch.optim.lr_scheduler import OneCycleLR
+from tqdm import tqdm
+
+from model import AudioCNN
 
 app = modal.App("cnn-audio-classifier")
 
@@ -103,6 +108,38 @@ def train():
     
     print(f"Training samples: {len(train_dataset)}")
     print(f"Val samples: {len(val_dataset)}")
+
+    train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    test_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = AudioCNN(num_classes=len(train_dataset.classes))
+    model.to(device)
+
+    num_epochs = 100
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    optimizer = optim.AdamW(model.parameters(), lr=0.005, weight_decay=0.01)
+
+    scheduler = OneCycleLR(
+        optimizer,
+        max_lr=0.002,
+        epochs=num_epochs,
+        steps_per_epoch=len(train_dataloader),
+        pct_start=0.1
+    )
+
+    best_accuracy = 0.0
+
+    print("Starting training")
+    for epoch in range(num_epochs):
+        model.train()
+        epoch_loss = 0.0
+
+        progress_bar = tqdm(
+                train_dataloader, desc=f'Epoch {epoch+1}/{num_epochs}')
+        for data, target in progress_bar:
+                data, target = data.to(device), target.to(device)
+
 
 @app.local_entrypoint()
 def main():
