@@ -68,6 +68,17 @@ class ESC50Dataset(Dataset):
             spectrogram = waveform
 
         return spectrogram, row['label']
+    
+def mixup_data(x, y):
+    lam = np.random.beta(0.2, 0.2)
+
+    batch_size = x.sixe(0)
+    index = torch.randperm(batch_size).to(x.device)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
 
 
 @app.function(image=image, gpu="A10G", volumes={"/data": volume, "/models": model_volume}, timeout=60 * 60 * 3)
