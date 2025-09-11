@@ -12,6 +12,7 @@ import torchaudio.transforms as T
 import torch.optim as optim
 from torch.optim.lr_scheduler import OneCycleLR
 from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 from model import AudioCNN
 
@@ -72,7 +73,7 @@ class ESC50Dataset(Dataset):
 def mixup_data(x, y):
     lam = np.random.beta(0.2, 0.2)
 
-    batch_size = x.sixe(0)
+    batch_size = x.size(0)
     index = torch.randperm(batch_size).to(x.device)
 
     mixed_x = lam * x + (1 - lam) * x[index, :]
@@ -88,6 +89,12 @@ def mixup_criterion(criterion, pred, y_a, y_b, lam):
 
 @app.function(image=image, gpu="A10G", volumes={"/data": volume, "/models": model_volume}, timeout=60 * 60 * 3)
 def train():
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = f'/models/tensorboard_logs/run_{timestamp}'
+    writer = SummaryWriter(log_dir)
+
+
     esc50_dir = Path("/opt/esc50-data")
 
     train_transform = nn.Sequential(
@@ -175,6 +182,10 @@ def train():
 
         
         avg_epoch_loss = epoch_loss / len(train_dataloader)
+        writer.add_scalar('Loss/Train', avg_epoch_loss, epoch)
+        writer.add_scalar(
+            'Learning_Rate', optimizer.param_groups[0]['lr'], epoch)
+
 
         # Validation after each epoch
         model.eval()
@@ -196,6 +207,24 @@ def train():
 
         accuracy = 100 * correct / total
         avg_val_loss = val_loss / len(test_dataloader)
+
+        writer.add_scalar('Loss/Validation', avg_val_loss, epoch)
+        writer.add_scalar('Accuracy/Validation', accuracy, epoch)
+
+        print(f'Epoch {epoch+1} Loss: {avg_epoch_loss:.4f}, Val Loss: {avg_val_loss:.4f}, Accuracy: {accuracy:.2f}%')
+
+        if accuracy > best_accuracy:
+            best_accuracy = accuracy
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'accuracy': accuracy,
+                'epoch': epoch,
+                'classes': train_dataset.classes
+            }, '/models/best_model.pth')
+            print(f'New best model saved: {accuracy:.2f}%')
+
+    writer.close()
+    print(f'Training completed! Best accuracy: {best_accuracy:.2f}%')
 
 
 @app.local_entrypoint()
