@@ -232,3 +232,4 @@ def main():
     train.remote()
 
 
+# Only run the training if this script is executed directly (for local testing)
