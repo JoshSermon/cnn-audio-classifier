@@ -3,6 +3,7 @@ import base64
 import io
 import modal
 import numpy as np
+import requests
 import torch.nn as nn
 import torchaudio.transforms as T
 import torch
@@ -107,3 +108,35 @@ class AudioClassifier:
             predictions = [{"class": self.classes[idx.item()], "confidence": prob.item()}
                            for prob, idx in zip(top3_probs, top3_indicies)]
 
+
+
+        response = {
+            "predictions": predictions
+        }
+
+        return response
+
+
+
+@app.local_entrypoint()
+def main():
+    audio_data, sample_rate = sf.read("chirpingbirds.wav")
+
+    buffer = io.BytesIO()
+    sf.write(buffer, audio_data, sample_rate, format="WAV")
+    audio_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    payload = {"audio_data": audio_b64}
+
+
+    server = AudioClassifier()
+    url = server.inference.get_web_url()
+    response = requests.post(url, json=payload)
+    response.raise_for_status()
+
+    result = response.json()
+
+
+
+    print("Top predictions:")
+    for pred in result.get("predictions", []):
+        print(f"  -{pred["class"]} {pred["confidence"]:0.2%}")
