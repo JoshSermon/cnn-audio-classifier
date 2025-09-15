@@ -1,4 +1,3 @@
-
 import base64
 import io
 import modal
@@ -13,11 +12,6 @@ import librosa
 
 from model import AudioCNN
 
-
-
-
-
-
 app = modal.App("cnn-audio-inference")
 
 image = (modal.Image.debian_slim()
@@ -26,6 +20,7 @@ image = (modal.Image.debian_slim()
          .add_local_python_source("model"))
 
 model_volume = modal.Volume.from_name("esc-model")
+
 
 class AudioProcessor:
     def __init__(self):
@@ -41,7 +36,6 @@ class AudioProcessor:
             T.AmplitudeToDB()
         )
 
-    
     def process_audio_chunk(self, audio_data):
         waveform = torch.from_numpy(audio_data).float()
 
@@ -50,7 +44,7 @@ class AudioProcessor:
         spectrogram = self.transform(waveform)
 
         return spectrogram.unsqueeze(0)
-    
+
 
 class InferenceRequest(BaseModel):
     audio_data: str
@@ -63,7 +57,7 @@ class AudioClassifier:
         print("Loading models on enter")
         self.device = torch.device(
             'cuda' if torch.cuda.is_available() else 'cpu')
-        
+
         checkpoint = torch.load('/models/best_model.pth',
                                 map_location=self.device)
         self.classes = checkpoint['classes']
@@ -76,13 +70,9 @@ class AudioClassifier:
         self.audio_processor = AudioProcessor()
         print("Model loaded on enter")
 
-
     @modal.fastapi_endpoint(method="POST")
     def inference(self, request: InferenceRequest):
         audio_bytes = base64.b64decode(request.audio_data)
-
-        # production: frontend -> upload file to s3 -> inference endpoint -> download from s3 bucket
-        # frontend -> send file directly -> inference endpoint
 
         audio_data, sample_rate = sf.read(
             io.BytesIO(audio_bytes), dtype="float32")
@@ -102,12 +92,11 @@ class AudioClassifier:
                 spectrogram, return_feature_maps=True)
 
             output = torch.nan_to_num(output)
-            probabilities = torch.softmax(output, dim=1) # dim = 0 batch, dim = 1 class (batch _size, num_class) 
+            probabilities = torch.softmax(output, dim=1)
             top3_probs, top3_indicies = torch.topk(probabilities[0], 3)
 
             predictions = [{"class": self.classes[idx.item()], "confidence": prob.item()}
                            for prob, idx in zip(top3_probs, top3_indicies)]
-
 
             viz_data = {}
             for name, tensor in feature_maps.items():
@@ -124,7 +113,6 @@ class AudioClassifier:
             spectrogram_np = spectrogram.squeeze(0).squeeze(0).cpu().numpy()
             clean_spectrogram = np.nan_to_num(spectrogram_np)
 
-
             max_samples = 8000
             waveform_sample_rate = 44100
             if len(audio_data) > max_samples:
@@ -132,7 +120,6 @@ class AudioClassifier:
                 waveform_data = audio_data[::step]
             else:
                 waveform_data = audio_data
-
 
         response = {
             "predictions": predictions,
@@ -151,17 +138,14 @@ class AudioClassifier:
         return response
 
 
-
 @app.local_entrypoint()
 def main():
     audio_data, sample_rate = sf.read("chirpingbirds.wav")
-    # audio_data, sample_rate = sf.read("chirpingbirds.wav")
+
     buffer = io.BytesIO()
-    sf.write(buffer, audio_data, sample_rate, format="WAV") 
-    # sf.write(buffer, audio_data, 22050, format="WAV") 
+    sf.write(buffer, audio_data, sample_rate, format="WAV")
     audio_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
     payload = {"audio_data": audio_b64}
-
 
     server = AudioClassifier()
     url = server.inference.get_web_url()
@@ -175,7 +159,6 @@ def main():
         values = waveform_info.get("values", {})
         print(f"First 10 values: {[round(v, 4) for v in values[:10]]}...")
         print(f"Duration: {waveform_info.get("duration", 0)}")
-
 
     print("Top predictions:")
     for pred in result.get("predictions", []):
