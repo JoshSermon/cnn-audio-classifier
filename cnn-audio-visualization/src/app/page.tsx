@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Progress } from "~/components/ui/progress";
 import Waveform from "~/components/Waveform";
+import Image from "next/image";
 
 
 interface Prediction {
@@ -178,6 +179,16 @@ export default function HomePage() {
     <main className="min-h-screen bg-stone-50 p-8">
       <div className="mx-auto max-w-[100%]">
         <div className="mb-12 text-center">
+          <div className="flex flex-col items-center justify-center pb-8">
+            <div className="mb-4">
+              <Image
+                src="/cnn-audio-logo.png"
+                alt="cnn-audio-classifier-logo"
+                width={100}
+                height={100}
+                className="rounded-lg shadow-lg"
+              />
+            </div>
           <h1 className="mb-4 text-4xl font-light tracking-tight text-stone-900">
             CNN Audio Visualizer
           </h1>
@@ -213,6 +224,7 @@ export default function HomePage() {
                 {fileName}
               </Badge>
             )}
+            </div>
           </div>
         </div>
 
