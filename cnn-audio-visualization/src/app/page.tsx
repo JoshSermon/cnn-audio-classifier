@@ -189,7 +189,7 @@ export default function HomePage() {
                 className="rounded-lg shadow-lg"
               />
             </div>
-          <h1 className="mb-4 text-4xl font-light tracking-tight text-stone-900">
+          <h1 className="mb-4 text-3xl md:text-5xl font-light tracking-tight text-stone-900">
             CNN Audio Visualizer
           </h1>
           <p className="text-md mb-8 text-stone-600">
