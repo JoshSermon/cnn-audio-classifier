@@ -286,7 +286,7 @@ export default function HomePage() {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-stone-900">
+                  <CardTitle className="text-stone-800">
                     Audio Waveform
                   </CardTitle>
                 </CardHeader>
